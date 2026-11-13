@@ -66,16 +66,24 @@ Unter **Project Settings** findest du drei Werte, die du gleich in Vercel eintr�
 
 1. Öffne <https://vercel.com/new> und importiere das GitHub-Repo `CodeFux94/Main`. Falls Vercel keinen Zugriff hat, klicke auf „Adjust GitHub App Permissions“ und gib das Repo frei.
 2. Vercel erkennt **Next.js** automatisch. Lass Build-Einstellungen und Root Directory unverändert.
-3. Klappe **Environment Variables** auf und trage vier Variablen ein (siehe [`.env.example`](.env.example)):
+3. Klappe **Environment Variables** auf und lege vier Variablen an (siehe [`.env.example`](.env.example)). Für jede Variable wählst du einen **Type** und füllst **Key** und **Value** aus:
 
-   | Name | Wert |
-   |---|---|
-   | `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
-   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key |
-   | `SUPABASE_SECRET_KEY` | Secret key |
-   | `ALLOWED_EMAIL` | deine E-Mail-Adresse (dieselbe wie in Schritt 3) |
+   | Type | Key | Value |
+   |---|---|---|
+   | Config | `NEXT_PUBLIC_SUPABASE_URL` | Project URL, z. B. `https://abcd1234.supabase.co` |
+   | Config | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key (`sb_publishable_…`) |
+   | **Secret** | `SUPABASE_SECRET_KEY` | Secret key (`sb_secret_…`) |
+   | Config | `ALLOWED_EMAIL` | deine E-Mail-Adresse (dieselbe wie in Schritt 3) |
+
+   Worauf du achten solltest:
+   - Den Key exakt so schreiben, wie er oben steht.
+   - Den Value ohne Anführungszeichen und ohne Leerzeichen eintragen.
+   - Falls Vercel nach den Umgebungen fragt: **Production** und **Preview** auswählen.
+   - Was der Type bedeutet: Bei **Secret** lässt sich der Wert später im Dashboard nicht mehr anzeigen. Bei **Config** bleibt er sichtbar. Die `NEXT_PUBLIC_…`-Werte sind ohnehin im Browser sichtbar, darum reicht dort Config.
 
 4. Klicke auf **Deploy**. Nach etwa einer Minute bekommst du eine Adresse wie `https://enduro-one-2027.vercel.app`.
+
+   Hast du die Variablen erst nach dem ersten Deploy eingetragen oder später geändert? Dann musst du neu deployen, denn Änderungen gelten nur für neue Deployments: **Deployments** → beim obersten Eintrag **⋯** → **Redeploy**.
 
 **Automatisches Deployment:** Vercel ist jetzt mit dem Repo verbunden.
 - Jeder Push auf `main` geht automatisch live.
