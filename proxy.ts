@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Pfade, die ohne Login erreichbar sein müssen.
-const PUBLIC_PREFIXES = ["/login", "/api/ics/", "/api/strava/webhook", "/api/cron/", "/offline"];
+const PUBLIC_PREFIXES = ["/login", "/api/health", "/api/ics/", "/api/strava/webhook", "/api/cron/", "/offline"];
 
 /**
  * Läuft vor jeder Seite: erneuert die Supabase-Sitzung (Cookies) und
