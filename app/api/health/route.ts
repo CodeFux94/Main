@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolvePublicSupabase, resolveSecretKey } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -8,16 +9,17 @@ export const dynamic = "force-dynamic";
  * niemals die Werte selbst.
  */
 export async function GET() {
+  const pub = resolvePublicSupabase();
   const env = {
-    NEXT_PUBLIC_SUPABASE_URL: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
-    SUPABASE_SECRET_KEY: Boolean(process.env.SUPABASE_SECRET_KEY),
+    supabase_url: Boolean(pub.url),
+    supabase_publishable_key: Boolean(pub.key),
+    supabase_secret_key: Boolean(resolveSecretKey()),
     ALLOWED_EMAIL: Boolean(process.env.ALLOWED_EMAIL),
   };
 
   let database: string;
   let plan: string = "unbekannt";
-  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+  if (!env.supabase_url || !env.supabase_secret_key) {
     database = "nicht geprüft (Variablen fehlen)";
   } else {
     try {
@@ -37,5 +39,7 @@ export async function GET() {
   }
 
   const ok = Object.values(env).every(Boolean) && database === "ok";
-  return Response.json({ ok, env, database, plan }, { status: ok ? 200 : 500, headers: { "Cache-Control": "no-store" } });
+  // Projekt-Kennung (Teil der öffentlichen URL), um zu sehen, mit welchem Supabase-Projekt die App spricht
+  const project = pub.url ? new URL(pub.url).hostname.split(".")[0] : null;
+  return Response.json({ ok, env, project, database, plan }, { status: ok ? 200 : 500, headers: { "Cache-Control": "no-store" } });
 }
