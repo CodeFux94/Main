@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { KEY_VAR_NAMES, resolvePublicSupabase, URL_VAR_NAMES } from "@/lib/env";
 
 // Pfade, die ohne Login erreichbar sein müssen.
 const PUBLIC_PREFIXES = ["/login", "/api/health", "/api/ics/", "/api/strava/webhook", "/api/cron/", "/offline"];
@@ -14,10 +15,9 @@ export async function proxy(request: NextRequest) {
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   let response = NextResponse.next({ request });
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const { url, key } = resolvePublicSupabase();
   if (!url || !key) {
-    const missing = [!url && "NEXT_PUBLIC_SUPABASE_URL", !key && "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"].filter(Boolean);
+    const missing = [!url && URL_VAR_NAMES, !key && KEY_VAR_NAMES].filter(Boolean);
     return new NextResponse(
       `Supabase ist nicht konfiguriert. Fehlende Umgebungsvariable(n): ${missing.join(", ")}.\n\n` +
         "In Vercel unter Settings → Environment Variables für Production eintragen und danach " +
