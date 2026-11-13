@@ -17,7 +17,13 @@ export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {
-    return new NextResponse("Supabase ist nicht konfiguriert (siehe README).", { status: 500 });
+    const missing = [!url && "NEXT_PUBLIC_SUPABASE_URL", !key && "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"].filter(Boolean);
+    return new NextResponse(
+      `Supabase ist nicht konfiguriert. Fehlende Umgebungsvariable(n): ${missing.join(", ")}.\n\n` +
+        "In Vercel unter Settings → Environment Variables für Production eintragen und danach " +
+        "unter Deployments → ⋯ → Redeploy neu deployen (siehe README, Schritt 5).",
+      { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
   }
 
   const supabase = createServerClient(url, key, {
