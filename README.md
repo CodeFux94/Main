@@ -40,20 +40,15 @@ Beide Skripte kannst du gefahrlos mehrfach ausführen.
 
 ### Schritt 3 – Login einrichten (nur du darfst rein)
 
+Die App nutzt **E-Mail + Passwort**. Es werden keine Mails verschickt, du brauchst also **kein SMTP** und musst keine E-Mail-Vorlagen anpassen.
+
 1. **Registrierung abschalten:** Gehe zu **Authentication → Sign In / Providers**. Schalte **Allow new users to sign up** aus. **Email** bleibt aktiviert.
-2. **Deinen Nutzer anlegen:** Gehe zu **Authentication → Users → Add user → Create new user**. Trage deine E-Mail-Adresse ein, vergib ein beliebiges Passwort (es wird nicht gebraucht) und setze den Haken bei **Auto Confirm User**.
-3. **Code statt Link verschicken:** Gehe zu **Authentication → Emails → Templates → Magic Link** und ersetze den Inhalt zum Beispiel durch:
+2. **Deinen Nutzer anlegen:** Gehe zu **Authentication → Users → Add user → Create new user**.
+   - Trage deine E-Mail-Adresse und ein **sicheres Passwort** ein. Mit diesem Passwort meldest du dich später in der App an, also im Passwort-Manager speichern.
+   - Setze den Haken bei **Auto Confirm User**.
+   - Hast du den Nutzer schon ohne bekanntes Passwort angelegt? Dann lösche ihn über die drei Punkte → **Delete user** und lege ihn neu an.
 
-   ```html
-   <h2>Dein Login-Code</h2>
-   <p>Gib diesen Code in der App ein: <strong>{{ .Token }}</strong></p>
-   ```
-
-   Den Betreff kannst du auf „Dein Login-Code für Enduro One“ ändern.
-
-   Warum ein Code? Ein Link aus der Mail öffnet sich auf dem iPhone in Safari und nicht in der installierten App. Dann wärst du in der App nicht eingeloggt. Den Code tippst du dagegen direkt in der App ein.
-
-> Hinweis: Der eingebaute Mailversand von Supabase ist auf wenige Mails pro Stunde begrenzt. Für einen einzelnen Nutzer reicht das. Die Sitzung bleibt ohnehin lange bestehen.
+> Die Sitzung bleibt auf iPhone und iPad lange bestehen. Du musst dich also nur selten neu anmelden.
 
 ### Schritt 4 – Schlüssel notieren
 
@@ -89,9 +84,8 @@ Unter **Project Settings** findest du drei Werte, die du gleich in Vercel eintr�
 
 ### Schritt 6 – Erster Start
 
-1. Öffne die Vercel-Adresse, gib deine E-Mail-Adresse ein und tippe auf **Login-Code anfordern**.
-2. Gib den Code aus der Mail ein.
-3. Öffne **Kalender → Plan erzeugen**. Die App legt alle Einheiten vom 16.11.2026 bis zum letzten Rennen an.
+1. Öffne die Vercel-Adresse und melde dich mit E-Mail und Passwort aus Schritt 3 an.
+2. Öffne **Kalender → Plan erzeugen**. Die App legt alle Einheiten vom 16.11.2026 bis zum letzten Rennen an.
 
 ### Schritt 7 – Auf iPhone/iPad installieren
 
@@ -169,7 +163,7 @@ Du brauchst dafür keinen Mac. Zwei Wege:
 ```
 app/
   (app)/            Seiten mit Login-Pflicht: Dashboard, Kalender, Erfolge, Berichte, Einstellungen
-  login/            Login mit E-Mail-Code
+  login/            Login mit E-Mail + Passwort
   api/ics/[token]/  Kalender-Feed
   manifest.ts       PWA-Manifest
 components/         UI-Bausteine
