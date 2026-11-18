@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/data";
 import { syncPlan } from "@/lib/plan/sync";
+import { rematch } from "@/lib/strava/sync";
+import { isMissingSchema } from "@/lib/db-errors";
 import { PHASE_KINDS } from "@/lib/plan/types";
 import type { FormResult } from "@/components/action-form";
 
@@ -52,8 +54,12 @@ export async function saveZonesAction(_: FormResult, fd: FormData): Promise<Form
   const { supabase } = await requireUser();
   const { error } = await supabase.from("settings").update({ ...parsed.data, updated_at: new Date().toISOString() }).eq("id", 1);
   if (error) return { error: error.message };
+  // Zeit in Zonen für alle Aktivitäten neu berechnen (aus gespeicherten HF-Daten)
+  const { data: n, error: e2 } = await supabase.rpc("recompute_activity_zones", {});
+  if (e2 && !isMissingSchema(e2)) return { error: `Zonen gespeichert, Neuberechnung fehlgeschlagen: ${e2.message}` };
+  await rematch(supabase);
   refresh();
-  return { ok: "Zonen gespeichert." };
+  return { ok: `Zonen gespeichert${n ? `, ${n} Aktivitäten neu berechnet` : ""}.` };
 }
 
 export async function rotateIcsTokenAction(): Promise<FormResult> {

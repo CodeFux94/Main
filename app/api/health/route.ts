@@ -38,8 +38,16 @@ export async function GET() {
     }
   }
 
+  // Strava (Etappe 2) – optional, beeinflusst "ok" nicht
+  const strava = {
+    client_id: Boolean(process.env.STRAVA_CLIENT_ID),
+    client_secret: Boolean(process.env.STRAVA_CLIENT_SECRET),
+    webhook_verify_token: Boolean(process.env.STRAVA_WEBHOOK_VERIFY_TOKEN),
+    cron_secret: Boolean(process.env.CRON_SECRET),
+  };
+
   const ok = Object.values(env).every(Boolean) && database === "ok";
   // Projekt-Kennung (Teil der öffentlichen URL), um zu sehen, mit welchem Supabase-Projekt die App spricht
   const project = pub.url ? new URL(pub.url).hostname.split(".")[0] : null;
-  return Response.json({ ok, env, project, database, plan }, { status: ok ? 200 : 500, headers: { "Cache-Control": "no-store" } });
+  return Response.json({ ok, env, strava, project, database, plan }, { status: ok ? 200 : 500, headers: { "Cache-Control": "no-store" } });
 }

@@ -2,8 +2,9 @@ import "server-only";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingSchema } from "@/lib/db-errors";
 import type { ISODate } from "@/lib/dates";
-import type { DeloadWeek, Phase, PlanOverride, PlannedSession, Race, TemplateSession } from "@/lib/plan/types";
+import type { ActivitySummary, DeloadWeek, Phase, PlanOverride, PlannedSession, Race, TemplateSession } from "@/lib/plan/types";
 
 export interface Settings {
   id: number;
@@ -15,6 +16,8 @@ export interface Settings {
   hr_z5: number;
   timezone: string;
   ics_token: string;
+  strava_webhook_id: number | null;
+  strava_webhook_url: string | null;
 }
 
 /** Prüft die Sitzung und liefert einen Supabase-Client des Nutzers. */
@@ -84,7 +87,54 @@ export async function getSessions(sb: SupabaseClient, from: ISODate, to: ISODate
       .order("start_time", { nullsFirst: true }),
     "Einheiten",
   ) as PlannedSession[];
-  return rows.map(normalizeSession);
+  const sessions = rows.map(normalizeSession);
+  const ids = sessions.map((x) => x.activity_id).filter((x): x is number => x != null);
+  if (ids.length === 0) return sessions;
+  const acts = new Map((await getActivitiesByIds(sb, ids)).map((a) => [a.id, a]));
+  return sessions.map((x) => {
+    const a = x.activity_id != null ? acts.get(x.activity_id) ?? null : null;
+    return { ...x, activity: a, activity_date: a?.local_date ?? null };
+  });
+}
+
+export const ACTIVITY_SUMMARY_COLUMNS =
+  "id, name, sport_type, local_date, start_date_local, moving_time_s, distance_m, elevation_gain_m, avg_hr, max_hr, avg_watts, weighted_avg_watts, zone_seconds, trimp";
+
+function normalizeActivity(a: ActivitySummary): ActivitySummary {
+  const n = (v: unknown) => (v == null ? null : Number(v));
+  return {
+    ...a,
+    id: Number(a.id),
+    distance_m: Number(a.distance_m),
+    elevation_gain_m: Number(a.elevation_gain_m),
+    avg_hr: n(a.avg_hr),
+    max_hr: n(a.max_hr),
+    avg_watts: n(a.avg_watts),
+    weighted_avg_watts: n(a.weighted_avg_watts),
+    trimp: n(a.trimp),
+  };
+}
+
+async function getActivitiesByIds(sb: SupabaseClient, ids: number[]): Promise<ActivitySummary[]> {
+  const res = await sb.from("activities").select(ACTIVITY_SUMMARY_COLUMNS).in("id", ids);
+  if (isMissingSchema(res.error)) return [];
+  const rows = unwrap(res, "Aktivitäten") as ActivitySummary[];
+  return rows.map(normalizeActivity);
+}
+
+/** Aktivitäten (nicht gelöscht) in einem Zeitraum. */
+export async function getActivities(sb: SupabaseClient, from: ISODate, to: ISODate): Promise<ActivitySummary[]> {
+  const res = await sb
+    .from("activities")
+    .select(ACTIVITY_SUMMARY_COLUMNS)
+    .is("deleted_at", null)
+    .gte("local_date", from)
+    .lte("local_date", to)
+    .order("start_date_local")
+    .range(0, 4999);
+  if (isMissingSchema(res.error)) return []; // Migration 0002 noch nicht ausgeführt
+  const rows = unwrap(res, "Aktivitäten") as ActivitySummary[];
+  return rows.map(normalizeActivity);
 }
 
 export async function countSessions(sb: SupabaseClient): Promise<number> {

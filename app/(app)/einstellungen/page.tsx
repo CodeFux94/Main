@@ -7,21 +7,22 @@ import { ActionButton } from "@/components/action-button";
 import { logoutAction } from "@/app/login/actions";
 import { IcsHint } from "../kalender/ics-hint";
 import { rotateIcsTokenAction, saveProfileAction, saveZonesAction } from "./actions";
+import { StravaSection } from "./strava-section";
 
 export const metadata: Metadata = { title: "Einstellungen" };
+// Server Actions dieser Seite (Strava-Abgleich) dürfen bis zu 60 s laufen
+export const maxDuration = 60;
 
-export default async function EinstellungenPage() {
+export default async function EinstellungenPage({ searchParams }: PageProps<"/einstellungen">) {
   const { supabase, email } = await requireUser();
   const s = await getSettings(supabase);
+  const sp = await searchParams;
 
   return (
     <>
       <PageHeader title="Einstellungen" subtitle={email ?? undefined} />
 
-      <section className="card mb-4">
-        <h2 className="mb-1 font-semibold">Strava</h2>
-        <p className="text-sm text-zinc-400">Die Verbindung zu Strava folgt in Etappe 2.</p>
-      </section>
+      <StravaSection status={typeof sp.strava === "string" ? sp.strava : undefined} webhookUrl={s.strava_webhook_url} />
 
       <section className="card mb-4">
         <h2 className="mb-3 font-semibold">Leistung & Gewicht</h2>

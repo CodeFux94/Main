@@ -10,7 +10,7 @@ Die App ist eine PWA: Sie lässt sich auf iPhone und iPad wie eine native App in
 | Etappe | Inhalt | Status |
 |---|---|---|
 | 1 | Grundgerüst, Login, Plan, Kalender, ICS-Feed, Einstellungen, PWA | ✅ |
-| 2 | Strava-Anbindung (OAuth, Import, Webhook, Zuordnung) | ⏳ |
+| 2 | Strava-Anbindung (OAuth, Import, Webhook, Zuordnung) | ✅ |
 | 3 | Dashboard mit Kennzahlen und Charts | ⏳ |
 | 4 | Erfolge | ⏳ |
 | 5 | Berichte (Wochen- und Phasenreview per Cron) | ⏳ |
@@ -35,6 +35,7 @@ Melde dich bei Supabase und Vercel am einfachsten mit „Continue with GitHub“
 2. Öffne hier im GitHub-Repo die Datei [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) und klicke auf das Kopier-Symbol („Copy raw file“).
 3. Füge den Inhalt im SQL Editor ein und klicke auf **Run**. Es sollte „Success. No rows returned“ erscheinen.
 4. Mache dasselbe mit [`supabase/seed.sql`](supabase/seed.sql). Damit landen Rennen, Phasen, Entlastungswochen, Standardwoche und Ausnahmen in der Datenbank.
+5. Ab Etappe 2 außerdem [`supabase/migrations/0002_strava.sql`](supabase/migrations/0002_strava.sql) ausführen (Strava-Tabellen).
 
 Beide Skripte kannst du gefahrlos mehrfach ausführen.
 
@@ -112,6 +113,48 @@ Der Link enthält einen geheimen Schlüssel. Wenn er in falsche Hände gerät, e
 
 ---
 
+### Schritt 9 – Strava verbinden (Etappe 2)
+
+1. **Datenbank erweitern:** Führe im Supabase **SQL Editor** die Datei [`supabase/migrations/0002_strava.sql`](supabase/migrations/0002_strava.sql) aus.
+2. **Strava-API-App** anlegen unter <https://www.strava.com/settings/api>:
+   - **Category:** Training
+   - **Website:** deine App-Adresse, z. B. `https://main-spv8.vercel.app`
+   - **Authorization Callback Domain:** nur der Domainname, z. B. `main-spv8.vercel.app`, ohne `https://`
+3. **Variablen in Vercel** eintragen (Settings → Environment Variables, Production):
+
+   | Type | Key | Value |
+   |---|---|---|
+   | Config | `STRAVA_CLIENT_ID` | „Client ID“ von der Strava-Seite |
+   | **Secret** | `STRAVA_CLIENT_SECRET` | „Client Secret“ von der Strava-Seite |
+   | **Secret** | `STRAVA_WEBHOOK_VERIFY_TOKEN` | ein frei gewähltes, langes Fantasiewort |
+   | **Secret** | `CRON_SECRET` | ein anderes, frei gewähltes, langes Fantasiewort |
+
+   Danach muss die App neu deployt werden. Das geschieht automatisch beim nächsten Merge auf `main`.
+4. **In der App:** **Einstellungen → Mit Strava verbinden** → bei Strava **Zulassen** tippen.
+   - Am einfachsten im normalen Browser (Safari/Chrome) verbinden, nicht in der installierten App. Die Verbindung gilt danach überall.
+   - Der Import aller Aktivitäten ab 01.06.2026 startet automatisch.
+5. **Webhook aktivieren:** Unter Einstellungen → Strava auf **Webhook aktivieren** tippen. Ab dann kommen neue, geänderte und gelöschte Aktivitäten automatisch in die App.
+
+**So funktioniert der Abgleich**
+- **Erstimport:** Seitenweise werden je 100 Aktivitäten geladen, danach für jede Aktivität mit Herzfrequenz einmal der HF-Verlauf (für die Zeit in den Zonen).
+- **Rate-Limits:** Strava erlaubt etwa 100 Lese-Anfragen pro 15 Minuten und 1.000 pro Tag. Kurz vor dem Limit stoppt die App und speichert den Fortschritt. Der Rest folgt beim nächsten **Jetzt abgleichen** (nach 15 Minuten) oder automatisch beim täglichen Abgleich um ca. 4 Uhr.
+- **HF-Zonen:** Die App speichert pro Aktivität eine Herzfrequenz-Verteilung. Änderst du die Zonen in den Einstellungen, wird alles neu berechnet, ohne Strava erneut abzufragen.
+- **Zuordnung zu Einheiten:**
+
+  | Einheit | passende Strava-Typen |
+  |---|---|
+  | Kraft | WeightTraining, Workout, Crossfit |
+  | Yoga & Mobility | Yoga, Pilates |
+  | Enduro | MountainBikeRide, EMountainBikeRide |
+  | Gravel | GravelRide, Ride (notfalls MTB) |
+  | Intervalle | VirtualRide (Indoor) oder Fahrt mit mindestens 5 Minuten in Z4/Z5 |
+  | Rennen | jede Radfahrt |
+
+  Status: **erledigt** (Aktivität am Plantag), **verschoben** (bis 2 Tage daneben, gleiche Woche), **verpasst** (Tag vorbei, keine Aktivität). Nicht zugeordnete Aktivitäten erscheinen im Kalender als „zusätzlich“.
+- **Statusseite:** `/api/health` zeigt, ob alle Variablen gesetzt sind (nur ja/nein, nie die Werte).
+
+---
+
 ## Die App benutzen
 
 - **Kalender:** Monatsansicht mit farbigen Phasen, hervorgehobenen Rennen und Punkten für die Einheiten. Tippst du auf einen Tag, öffnet sich die Wochenansicht. Dort kannst du Einheiten **verschieben** (Datum und Uhrzeit), **absagen** und **zurücksetzen**.
@@ -173,10 +216,14 @@ app/
   (app)/            Seiten mit Login-Pflicht: Dashboard, Kalender, Erfolge, Berichte, Einstellungen
   login/            Login mit E-Mail + Passwort
   api/ics/[token]/  Kalender-Feed
+  api/strava/       Verbinden, Rücksprung (callback), Webhook
+  api/cron/daily/   Täglicher Abgleich (Vercel Cron)
+  api/health/       Statusseite
   manifest.ts       PWA-Manifest
 components/         UI-Bausteine
 lib/
-  plan/             Plan-Generator, Seed-Daten, Status, Sync in die DB
+  plan/             Plan-Generator, Seed-Daten, Status, Zuordnung, Sync in die DB
+  strava/           Strava-Client (OAuth, Rate-Limits), Import, Webhook-Verarbeitung
   supabase/         Supabase-Clients (Nutzer-Sitzung / Secret Key)
   dates.ts, ics.ts  Datums- und iCalendar-Hilfen
 proxy.ts            Sitzung erneuern + Login-Schutz (früher „middleware“)
@@ -189,4 +236,7 @@ tests/              Vitest-Tests
 
 - Secrets stehen nur in Umgebungsvariablen. `.env*` ist per `.gitignore` ausgeschlossen, mit Ausnahme von `.env.example`.
 - In allen Tabellen ist Row Level Security aktiv: Nur angemeldete Nutzer haben Zugriff. Registrierung ist abgeschaltet, und es ist nur `ALLOWED_EMAIL` erlaubt.
-- Der Secret Key wird ausschließlich serverseitig verwendet (ICS-Feed, ab Etappe 2 auch Strava-Webhook und Cron).
+- Der Secret Key wird ausschließlich serverseitig verwendet (ICS-Feed, Strava-Webhook, Cron).
+- Die Strava-Tokens liegen in einer Tabelle ohne RLS-Policy und sind damit nur für den Server lesbar.
+- Webhook-Inhalte werden nie blind übernommen: Die App lädt jede gemeldete Aktivität direkt bei Strava nach.
+- Der Cron-Endpunkt verlangt `CRON_SECRET`. Vercel sendet ihn automatisch mit.
