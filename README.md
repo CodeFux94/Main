@@ -11,9 +11,9 @@ Die App ist eine PWA: Sie lässt sich auf iPhone und iPad wie eine native App in
 |---|---|---|
 | 1 | Grundgerüst, Login, Plan, Kalender, ICS-Feed, Einstellungen, PWA | ✅ |
 | 2 | Strava-Anbindung (OAuth, Import, Webhook, Zuordnung) | ✅ |
-| 3 | Dashboard mit Kennzahlen und Charts | ⏳ |
-| 4 | Erfolge | ⏳ |
-| 5 | Berichte (Wochen- und Phasenreview per Cron) | ⏳ |
+| 3 | Dashboard mit Kennzahlen und Charts | ✅ |
+| 4 | Erfolge | ✅ |
+| 5 | Berichte (Wochen- und Phasenreview per Cron) | ✅ |
 
 ---
 
@@ -35,7 +35,7 @@ Melde dich bei Supabase und Vercel am einfachsten mit „Continue with GitHub“
 2. Öffne hier im GitHub-Repo die Datei [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) und klicke auf das Kopier-Symbol („Copy raw file“).
 3. Füge den Inhalt im SQL Editor ein und klicke auf **Run**. Es sollte „Success. No rows returned“ erscheinen.
 4. Mache dasselbe mit [`supabase/seed.sql`](supabase/seed.sql). Damit landen Rennen, Phasen, Entlastungswochen, Standardwoche und Ausnahmen in der Datenbank.
-5. Ab Etappe 2 außerdem [`supabase/migrations/0002_strava.sql`](supabase/migrations/0002_strava.sql) ausführen (Strava-Tabellen).
+5. Außerdem [`supabase/migrations/0002_strava.sql`](supabase/migrations/0002_strava.sql) (Strava) und [`supabase/migrations/0003_reports.sql`](supabase/migrations/0003_reports.sql) (Berichte) ausführen – in dieser Reihenfolge.
 
 Beide Skripte kannst du gefahrlos mehrfach ausführen.
 
@@ -137,7 +137,7 @@ Der Link enthält einen geheimen Schlüssel. Wenn er in falsche Hände gerät, e
 
 **So funktioniert der Abgleich**
 - **Erstimport:** Seitenweise werden je 100 Aktivitäten geladen, danach für jede Aktivität mit Herzfrequenz einmal der HF-Verlauf (für die Zeit in den Zonen).
-- **Rate-Limits:** Strava erlaubt etwa 100 Lese-Anfragen pro 15 Minuten und 1.000 pro Tag. Kurz vor dem Limit stoppt die App und speichert den Fortschritt. Der Rest folgt beim nächsten **Jetzt abgleichen** (nach 15 Minuten) oder automatisch beim täglichen Abgleich um ca. 4 Uhr.
+- **Rate-Limits:** Strava erlaubt etwa 100 Lese-Anfragen pro 15 Minuten und 1.000 pro Tag. Kurz vor dem Limit stoppt die App und speichert den Fortschritt. Der Rest folgt beim nächsten **Jetzt abgleichen** (nach 15 Minuten) oder automatisch beim täglichen Abgleich (ca. 7:47 Uhr).
 - **HF-Zonen:** Die App speichert pro Aktivität eine Herzfrequenz-Verteilung. Änderst du die Zonen in den Einstellungen, wird alles neu berechnet, ohne Strava erneut abzufragen.
 - **Zuordnung zu Einheiten:**
 
@@ -152,6 +152,36 @@ Der Link enthält einen geheimen Schlüssel. Wenn er in falsche Hände gerät, e
 
   Status: **erledigt** (Aktivität am Plantag), **verschoben** (bis 2 Tage daneben, gleiche Woche), **verpasst** (Tag vorbei, keine Aktivität). Nicht zugeordnete Aktivitäten erscheinen im Kalender als „zusätzlich“.
 - **Statusseite:** `/api/health` zeigt, ob alle Variablen gesetzt sind (nur ja/nein, nie die Werte).
+
+### Schritt 10 – Berichte (Etappe 5)
+
+1. Im Supabase **SQL Editor** [`supabase/migrations/0003_reports.sql`](supabase/migrations/0003_reports.sql) ausführen.
+2. Fertig – `CRON_SECRET` ist aus Schritt 9 schon gesetzt.
+
+**So funktioniert es**
+- **Wochenreview:** Jeden **Montag ca. 6:23 Uhr** holt die App die neuesten Strava-Daten und speichert das Review der Vorwoche. Inhalt:
+  - Soll/Ist je Einheit
+  - Umfang, Höhenmeter, Belastung
+  - Intensitätsverteilung
+  - Vergleich zur Vorwoche
+  - neue Bestwerte und Badges
+  - „Was war gut“ und „Wo steckt Potenzial“
+- **Phasenbericht:** Am Tag nach dem Ende einer Phase entsteht die Bilanz der ganzen Phase, mit Ausblick auf die nächste.
+- **Täglicher Abgleich (ca. 7:47 Uhr):** Holt verpasste Berichte nach, z. B. wenn ein Montag ausgefallen ist.
+- **Archiv:** Gespeicherte Berichte bleiben unverändert. Mit **Neu berechnen** lässt sich ein Bericht mit den aktuellen Daten überschreiben, z. B. wenn eine Aktivität nachträglich hochgeladen wurde.
+- **Vorschau:** Unter Berichte → **Laufende Woche** bzw. **Laufende Phase** siehst du jederzeit den aktuellen Zwischenstand.
+
+**Regeln für „Was war gut“ / „Wo steckt Potenzial“** (in `lib/reports/build.ts`, alle Schwellen dort anpassbar):
+
+| Gut | Potenzial |
+|---|---|
+| alle bzw. ≥ 80 % der Einheiten erledigt | verpasste Einheiten (Kraft und Mobility mit eigenem Hinweis) |
+| Umfang im Soll-Bereich | Umfang unter Soll bzw. deutlich darüber (Entlastungswoche!) |
+| Entlastungswoche eingehalten | Belastung > 30 % über der Vorwoche |
+| ≥ 75 % locker (Z1–Z2) | < 75 % locker in Trainingsphasen; ≥ 25 % in Z3 („graue Zone“) |
+| ≥ 10 min in Z4–Z5 bei Intervallen | Intervalle ohne echte Intensität |
+| ≥ 1.500 hm und mehr als in der Vorwoche | ≥ 2 Einheiten verschoben |
+| neue Bestwerte, Badges, Serie ≥ 2 Wochen | gleicher Wochentag fällt in 4 Wochen mehrfach aus |
 
 ---
 
@@ -217,13 +247,15 @@ app/
   login/            Login mit E-Mail + Passwort
   api/ics/[token]/  Kalender-Feed
   api/strava/       Verbinden, Rücksprung (callback), Webhook
-  api/cron/daily/   Täglicher Abgleich (Vercel Cron)
+  api/cron/         Täglicher Abgleich + Montags-Review (Vercel Cron)
   api/health/       Statusseite
   manifest.ts       PWA-Manifest
 components/         UI-Bausteine
 lib/
   plan/             Plan-Generator, Seed-Daten, Status, Zuordnung, Sync in die DB
   strava/           Strava-Client (OAuth, Rate-Limits), Import, Webhook-Verarbeitung
+  metrics/          Wochenkennzahlen, Serien, Bestwerte, Badges
+  reports/          Wochen- und Phasenberichte (Regeln + Speicherung)
   supabase/         Supabase-Clients (Nutzer-Sitzung / Secret Key)
   dates.ts, ics.ts  Datums- und iCalendar-Hilfen
 proxy.ts            Sitzung erneuern + Login-Schutz (früher „middleware“)
