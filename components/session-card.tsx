@@ -1,9 +1,17 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { cancelSessionAction, moveSessionAction, resetSessionAction, type ActionResult } from "@/app/(app)/kalender/actions";
+import { cancelSessionAction, changeSessionAction, resetSessionAction, type ActionResult } from "@/app/(app)/kalender/actions";
 import { formatDayMonth, formatRange, formatShort, formatTime } from "@/lib/dates";
-import { STATUS_LABELS, type PlannedSession, type SessionStatus } from "@/lib/plan/types";
+import {
+  EDITABLE_SESSION_TYPES,
+  plannedTypeOf,
+  SESSION_TYPE_LABELS,
+  STATUS_LABELS,
+  type PlanOverride,
+  type PlannedSession,
+  type SessionStatus,
+} from "@/lib/plan/types";
 import { STATUS_CLASSES, TYPE_COLORS } from "@/lib/plan/style";
 import { ActivityLine } from "./activity-line";
 
@@ -11,15 +19,17 @@ interface Props {
   session: PlannedSession;
   status: SessionStatus;
   hasOverride: boolean;
+  /** aktuelle manuelle Änderung (für die Vorbelegung des Formulars) */
+  override?: PlanOverride;
   compact?: boolean;
 }
 
-export function SessionCard({ session: s, status, hasOverride, compact }: Props) {
-  const [mode, setMode] = useState<"view" | "move">("view");
+export function SessionCard({ session: s, status, hasOverride, override: o, compact }: Props) {
+  const [mode, setMode] = useState<"view" | "change">("view");
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<ActionResult>({});
   const [moveState, moveAction, movePending] = useActionState<ActionResult, FormData>(async (prev, fd) => {
-    const r = await moveSessionAction(prev, fd);
+    const r = await changeSessionAction(prev, fd);
     if (r.ok) setMode("view");
     return r;
   }, {});
@@ -29,6 +39,8 @@ export function SessionCard({ session: s, status, hasOverride, compact }: Props)
   const editable = s.session_type !== "race" && status !== "done" && status !== "shifted";
   const resettable = s.session_type !== "race" && hasOverride;
   const moved = s.date !== s.original_date;
+  const plannedType = plannedTypeOf(s.slot_key);
+  const replaced = s.session_type !== "race" && s.session_type !== plannedType;
 
   return (
     <div
@@ -43,6 +55,7 @@ export function SessionCard({ session: s, status, hasOverride, compact }: Props)
             {s.target_min != null && ` · ${formatRange(s.target_min, s.target_max)}`}
             {moved && ` · verschoben vom ${formatDayMonth(s.original_date)}`}
           </div>
+          {replaced && <div className="mt-0.5 text-xs text-sky-300">statt {SESSION_TYPE_LABELS[plannedType]}</div>}
           {s.note && !compact && <div className="mt-1 text-xs italic text-zinc-500">{s.note}</div>}
         </div>
         <span className={`badge shrink-0 ${STATUS_CLASSES[status]}`}>{STATUS_LABELS[status]}</span>
@@ -60,8 +73,8 @@ export function SessionCard({ session: s, status, hasOverride, compact }: Props)
         <div className="mt-2 flex flex-wrap gap-2">
           {editable && !s.cancelled && (
             <>
-              <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => setMode("move")} disabled={pending}>
-                Verschieben
+              <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => setMode("change")} disabled={pending}>
+                Ändern
               </button>
               <button
                 className="btn-ghost px-3 py-1.5 text-xs"
@@ -82,9 +95,20 @@ export function SessionCard({ session: s, status, hasOverride, compact }: Props)
         </div>
       )}
 
-      {mode === "move" && (
+      {mode === "change" && (
         <form action={moveAction} className="mt-3 grid grid-cols-2 gap-2">
           <input type="hidden" name="slot_key" value={s.slot_key} />
+          <label className="col-span-2">
+            <span className="label">Training</span>
+            <select name="session_type" defaultValue={s.session_type} className="input py-2 text-sm">
+              {EDITABLE_SESSION_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {SESSION_TYPE_LABELS[t]}
+                  {t === plannedType ? " (geplant)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="col-span-1">
             <span className="label">Datum</span>
             <input type="date" name="new_date" defaultValue={s.date} required className="input py-2 text-sm" />
@@ -94,8 +118,50 @@ export function SessionCard({ session: s, status, hasOverride, compact }: Props)
             <input type="time" name="new_time" defaultValue={formatTime(s.start_time)} className="input py-2 text-sm" />
           </label>
           <label className="col-span-2">
-            <span className="label">Notiz (optional)</span>
-            <input name="note" className="input py-2 text-sm" placeholder="z. B. Termin, Wetter" />
+            <span className="label">Titel (optional)</span>
+            <input
+              name="title"
+              defaultValue={o?.new_title ?? ""}
+              maxLength={80}
+              className="input py-2 text-sm"
+              placeholder="z. B. Laufband 45 min, Dehnen & Faszienrolle"
+            />
+          </label>
+          <label className="col-span-1">
+            <span className="label">Dauer von (min)</span>
+            <input
+              type="number"
+              name="duration_min"
+              min={5}
+              max={600}
+              inputMode="numeric"
+              defaultValue={o?.new_duration_min ?? ""}
+              placeholder={s.target_min != null ? String(s.target_min) : ""}
+              className="input py-2 text-sm"
+            />
+          </label>
+          <label className="col-span-1">
+            <span className="label">bis (min)</span>
+            <input
+              type="number"
+              name="duration_max"
+              min={5}
+              max={600}
+              inputMode="numeric"
+              defaultValue={o?.new_duration_max ?? ""}
+              placeholder={s.target_max != null ? String(s.target_max) : ""}
+              className="input py-2 text-sm"
+            />
+          </label>
+          <label className="col-span-2">
+            <span className="label">Grund / Notiz (optional)</span>
+            <input
+              name="note"
+              defaultValue={o?.note ?? ""}
+              maxLength={300}
+              className="input py-2 text-sm"
+              placeholder="z. B. Regen, wenig Zeit"
+            />
           </label>
           <div className="col-span-2 flex gap-2">
             <button className="btn-primary flex-1 py-2 text-xs" disabled={movePending}>

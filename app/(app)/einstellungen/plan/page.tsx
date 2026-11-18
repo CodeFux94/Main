@@ -11,7 +11,7 @@ import { deletePlanRowAction, regeneratePlanAction, savePlanRowAction } from "..
 
 export const metadata: Metadata = { title: "Plan bearbeiten" };
 
-const TEMPLATE_TYPES = ["strength", "intervals", "mobility", "enduro", "gravel"] as const;
+const TEMPLATE_TYPES = ["strength", "intervals", "mobility", "enduro", "gravel", "cardio"] as const;
 
 function Field({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
   return (
@@ -153,7 +153,7 @@ export default async function PlanEditPage() {
         <details><summary className="cursor-pointer text-sm text-orange-400">+ Einheit hinzufügen</summary><div className="mt-2"><Row table="week_template">{templateFields()}</Row></div></details>
       </Section>
 
-      <Section title="Manuelle Änderungen" hint="Verschiebungen und Absagen aus dem Kalender. Löschen stellt die ursprüngliche Einheit wieder her.">
+      <Section title="Manuelle Änderungen" hint="Änderungen, Verschiebungen und Absagen aus dem Kalender. Löschen stellt die ursprüngliche Einheit wieder her.">
         {overrides.length === 0 && <p className="text-sm text-zinc-500">Keine.</p>}
         {overrides
           .sort((a, b) => a.slot_key.localeCompare(b.slot_key))
@@ -166,7 +166,18 @@ export default async function PlanEditPage() {
                     {SESSION_TYPE_LABELS[type as keyof typeof SESSION_TYPE_LABELS] ?? type} am {formatDate(d)}
                   </div>
                   <div className="text-xs text-zinc-400">
-                    {o.action === "cancel" ? "abgesagt" : `verschoben auf ${formatDate(o.new_date!)}${o.new_time ? ` ${o.new_time}` : ""}`}
+                    {o.action === "cancel"
+                      ? "abgesagt"
+                      : [
+                          o.new_date !== d || o.new_time ? `${formatDate(o.new_date!)}${o.new_time ? ` ${o.new_time}` : ""}` : null,
+                          o.new_session_type ? `ersetzt durch ${SESSION_TYPE_LABELS[o.new_session_type]}` : null,
+                          o.new_title ? `„${o.new_title}“` : null,
+                          o.new_duration_min != null || o.new_duration_max != null
+                            ? `${o.new_duration_min ?? o.new_duration_max}–${o.new_duration_max ?? o.new_duration_min} min`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "geändert"}
                     {o.note && ` · ${o.note}`}
                   </div>
                 </div>

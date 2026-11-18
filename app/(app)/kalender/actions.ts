@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/data";
 import { syncPlan } from "@/lib/plan/sync";
 import { isISODate } from "@/lib/dates";
+import { EDITABLE_SESSION_TYPES } from "@/lib/plan/types";
 
 export interface ActionResult {
   ok?: string;
@@ -28,33 +29,68 @@ export async function generatePlanAction(): Promise<ActionResult> {
   }
 }
 
-export async function moveSessionAction(_: ActionResult, formData: FormData): Promise<ActionResult> {
-  const { supabase } = await requireUser();
-  const slotKey = slotKeySchema.safeParse(formData.get("slot_key"));
-  const newDate = String(formData.get("new_date") ?? "");
-  const newTime = String(formData.get("new_time") ?? "");
-  if (!slotKey.success) return { error: "Ungültige Einheit." };
-  if (!isISODate(newDate)) return { error: "Bitte ein gültiges Datum wählen." };
-  if (newTime && !/^\d{2}:\d{2}$/.test(newTime)) return { error: "Bitte eine gültige Uhrzeit wählen." };
+const changeSchema = z.object({
+  slot_key: slotKeySchema,
+  new_date: z.string().refine(isISODate, "Bitte ein gültiges Datum wählen."),
+  new_time: z.union([z.literal(""), z.string().regex(/^\d{2}:\d{2}$/, "Bitte eine gültige Uhrzeit wählen.")]),
+  session_type: z.enum(EDITABLE_SESSION_TYPES as [string, ...string[]]),
+  title: z.string().trim().max(80, "Titel ist zu lang."),
+  duration_min: z.union([z.literal(""), z.coerce.number().int().min(5, "Dauer mind. 5 min.").max(600)]),
+  duration_max: z.union([z.literal(""), z.coerce.number().int().min(5, "Dauer mind. 5 min.").max(600)]),
+  note: z.string().trim().max(300, "Notiz ist zu lang."),
+});
 
-  const originalDate = slotKey.data.split("|")[0];
-  const sameAsOriginal = newDate === originalDate && !newTime;
-  const { error } = sameAsOriginal
-    ? await supabase.from("plan_overrides").delete().eq("slot_key", slotKey.data)
+/**
+ * Ändert eine Einheit: Datum, Uhrzeit, Art des Trainings, Titel und Dauer.
+ * Die geänderte Art zählt für Strava-Zuordnung und Berichte.
+ */
+export async function changeSessionAction(_: ActionResult, formData: FormData): Promise<ActionResult> {
+  const { supabase } = await requireUser();
+  const str = (k: string) => String(formData.get(k) ?? "");
+  const parsed = changeSchema.safeParse({
+    slot_key: str("slot_key"),
+    new_date: str("new_date"),
+    new_time: str("new_time"),
+    session_type: str("session_type"),
+    title: str("title"),
+    duration_min: str("duration_min"),
+    duration_max: str("duration_max"),
+    note: str("note"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe." };
+  const f = parsed.data;
+  const dMin = f.duration_min === "" ? null : f.duration_min;
+  const dMax = f.duration_max === "" ? null : f.duration_max;
+  if (dMin != null && dMax != null && dMax < dMin) return { error: "Die maximale Dauer muss größer als die minimale sein." };
+
+  const [originalDate, plannedType] = f.slot_key.split("|");
+  const typeChanged = f.session_type !== plannedType;
+  const unchanged =
+    f.new_date === originalDate && !f.new_time && !typeChanged && !f.title && dMin == null && dMax == null && !f.note;
+  const { error } = unchanged
+    ? await supabase.from("plan_overrides").delete().eq("slot_key", f.slot_key)
     : await supabase.from("plan_overrides").upsert(
         {
-          slot_key: slotKey.data,
+          slot_key: f.slot_key,
           action: "move",
-          new_date: newDate,
-          new_time: newTime || null,
-          note: String(formData.get("note") ?? "").trim() || null,
+          new_date: f.new_date,
+          new_time: f.new_time || null,
+          note: f.note || null,
+          new_session_type: typeChanged ? f.session_type : null,
+          new_title: f.title || null,
+          new_duration_min: dMin,
+          new_duration_max: dMax,
         },
         { onConflict: "slot_key" },
       );
-  if (error) return { error: error.message };
+  if (error) {
+    if (/new_session_type|new_title|new_duration|column/.test(error.message))
+      return { error: "Datenbank noch nicht aktualisiert: bitte supabase/migrations/0004_session_changes.sql im Supabase SQL Editor ausführen." };
+    return { error: error.message };
+  }
   await syncPlan(supabase);
   refresh();
-  return { ok: "Einheit verschoben." };
+  return { ok: "Einheit geändert." };
 }
 
 export async function cancelSessionAction(slotKey: string, note?: string): Promise<ActionResult> {

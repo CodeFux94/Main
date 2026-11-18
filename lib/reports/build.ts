@@ -1,7 +1,7 @@
 // Wochen- und Phasenberichte: Daten zusammenstellen und Regeln anwenden (reine Funktionen).
 import { addDays, isWithin, isoWeekNumber, isoWeekday, startOfWeek, WEEKDAY_NAMES, type ISODate } from "@/lib/dates";
 import { sessionStatus } from "@/lib/plan/status";
-import { SESSION_TYPE_LABELS, type ActivitySummary, type DeloadWeek, type Phase, type PhaseKind, type PlannedSession, type SessionStatus, type SessionType } from "@/lib/plan/types";
+import { plannedTypeOf, SESSION_TYPE_LABELS, type ActivitySummary, type DeloadWeek, type Phase, type PhaseKind, type PlannedSession, type SessionStatus, type SessionType } from "@/lib/plan/types";
 import { intensitySplit, weekStats, type WeekStats } from "@/lib/metrics/weekly";
 import { computeBadges, personalRecords, streaks, weekResults, type PersonalRecord } from "@/lib/metrics/achievements";
 
@@ -23,6 +23,8 @@ export interface ReportSession {
   title: string;
   session_type: SessionType;
   status: SessionStatus;
+  /** ursprünglich geplante Art, wenn die Einheit ersetzt wurde (z. B. Gravel → Yoga) */
+  replaced_type?: SessionType | null;
   target_min: number | null;
   target_max: number | null;
   activity: { id: number; name: string; local_date: ISODate; moving_time_s: number; distance_m: number; elevation_gain_m: number } | null;
@@ -78,6 +80,7 @@ export function buildWeeklyReport(ctx: ReportContext, weekStart: ISODate): Weekl
     title: s.title,
     session_type: s.session_type,
     status: sessionStatus(s, today),
+    replaced_type: s.session_type !== "race" && plannedTypeOf(s.slot_key) !== s.session_type ? plannedTypeOf(s.slot_key) : null,
     target_min: s.target_min,
     target_max: s.target_max,
     activity: s.activity
@@ -173,6 +176,15 @@ export function weeklyRules(r: WeeklyReportData, missedWeekdays: Map<number, num
     if (missed.some((x) => x.session_type === "mobility"))
       pot.push("Yoga & Mobility ausgelassen – schon 20 min helfen bei Regeneration und Beweglichkeit auf dem Bike.");
   }
+  const replacedDone = r.sessions.filter((x) => x.replaced_type && (x.status === "done" || x.status === "shifted"));
+  if (replacedDone.length) {
+    const what = replacedDone.map((x) => `${SESSION_TYPE_LABELS[x.replaced_type!]} → ${SESSION_TYPE_LABELS[x.session_type]}`).join(", ");
+    good.push(`Flexibel geblieben: ${replacedDone.length === 1 ? "eine Einheit" : `${replacedDone.length} Einheiten`} ersetzt statt ausgelassen (${what}).`);
+  }
+  const lostRide = r.sessions.filter(
+    (x) => x.replaced_type && ["enduro", "gravel"].includes(x.replaced_type) && !["enduro", "gravel", "intervals", "cardio"].includes(x.session_type),
+  ).length;
+  if (lostRide >= 2) pot.push(`${lostRide} Ausdauer-Einheiten durch Kraft oder Yoga ersetzt – die Grundlage kommt dabei zu kurz. Wenn möglich eine Ausdauer-Einheit im Studio oder Laufen einbauen.`);
   if (shifted >= 2) pot.push(`${shifted} Einheiten an anderen Tagen erledigt – passt der Wochenplan noch zu deinem Alltag?`);
   // Muster nur melden, wenn es auch diese Woche wieder passiert ist
   const thisWeekDays = new Set(missed.map((x) => isoWeekday(x.date)));

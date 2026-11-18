@@ -6,6 +6,7 @@ export const TYPE_COLORS: Record<SessionType, string> = {
   mobility: "#2dd4bf", // türkis
   enduro: "#fb923c", // orange
   gravel: "#a3e635", // limette
+  cardio: "#60a5fa", // blau
   race: "#facc15", // gelb
 };
 
