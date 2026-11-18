@@ -2,6 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingSchema } from "@/lib/db-errors";
 import type { ISODate } from "@/lib/dates";
 import type { ActivitySummary, DeloadWeek, Phase, PlanOverride, PlannedSession, Race, TemplateSession } from "@/lib/plan/types";
 
@@ -115,26 +116,24 @@ function normalizeActivity(a: ActivitySummary): ActivitySummary {
 }
 
 async function getActivitiesByIds(sb: SupabaseClient, ids: number[]): Promise<ActivitySummary[]> {
-  const rows = unwrap(
-    await sb.from("activities").select(ACTIVITY_SUMMARY_COLUMNS).in("id", ids),
-    "Aktivitäten",
-  ) as ActivitySummary[];
+  const res = await sb.from("activities").select(ACTIVITY_SUMMARY_COLUMNS).in("id", ids);
+  if (isMissingSchema(res.error)) return [];
+  const rows = unwrap(res, "Aktivitäten") as ActivitySummary[];
   return rows.map(normalizeActivity);
 }
 
 /** Aktivitäten (nicht gelöscht) in einem Zeitraum. */
 export async function getActivities(sb: SupabaseClient, from: ISODate, to: ISODate): Promise<ActivitySummary[]> {
-  const rows = unwrap(
-    await sb
-      .from("activities")
-      .select(ACTIVITY_SUMMARY_COLUMNS)
-      .is("deleted_at", null)
-      .gte("local_date", from)
-      .lte("local_date", to)
-      .order("start_date_local")
-      .range(0, 4999),
-    "Aktivitäten",
-  ) as ActivitySummary[];
+  const res = await sb
+    .from("activities")
+    .select(ACTIVITY_SUMMARY_COLUMNS)
+    .is("deleted_at", null)
+    .gte("local_date", from)
+    .lte("local_date", to)
+    .order("start_date_local")
+    .range(0, 4999);
+  if (isMissingSchema(res.error)) return []; // Migration 0002 noch nicht ausgeführt
+  const rows = unwrap(res, "Aktivitäten") as ActivitySummary[];
   return rows.map(normalizeActivity);
 }
 

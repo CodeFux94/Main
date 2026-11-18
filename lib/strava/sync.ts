@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays } from "@/lib/dates";
+import { isMissingSchema } from "@/lib/db-errors";
 import { matchActivities, type MatchActivity, type MatchSession } from "@/lib/plan/matching";
 import {
   RateLimitError, StravaAuthError, StravaClient, StravaNotConnectedError, StravaNotFoundError, loadConnection,
@@ -121,6 +122,7 @@ export async function rematch(sb: SupabaseClient): Promise<number> {
     .is("deleted_at", null)
     .gte("local_date", from)
     .range(0, 9999);
+  if (isMissingSchema(e2)) return 0; // Migration 0002 noch nicht ausgeführt
   if (e2) throw new Error(`Aktivitäten lesen: ${e2.message}`);
 
   const matches = matchActivities(

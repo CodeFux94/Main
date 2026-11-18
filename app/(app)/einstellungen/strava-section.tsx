@@ -3,6 +3,7 @@ import { loadConnection, stravaEnv } from "@/lib/strava/client";
 import { IMPORT_START_LOCAL } from "@/lib/strava/limits";
 import { formatDate } from "@/lib/dates";
 import { ActionButton } from "@/components/action-button";
+import { isMissingSchema, MIGRATION_HINT } from "@/lib/db-errors";
 import { disableWebhookAction, disconnectStravaAction, enableWebhookAction, syncStravaAction } from "./strava-actions";
 
 const MESSAGES: Record<string, [string, boolean]> = {
@@ -20,6 +21,17 @@ const fmtTime = (iso: string) =>
 export async function StravaSection({ status, webhookUrl }: { status?: string; webhookUrl: string | null }) {
   const admin = createAdminClient();
   const env = stravaEnv();
+  // Migration 0002 schon ausgeführt?
+  const probe = await admin.from("strava_connection").select("id").limit(1);
+  if (isMissingSchema(probe.error)) {
+    return (
+      <section className="card mb-4">
+        <h2 className="mb-2 font-semibold">Strava</h2>
+        <p className="text-sm text-amber-400">{MIGRATION_HINT}</p>
+        <p className="mt-2 text-xs text-zinc-500">Danach diese Seite neu laden (README, Schritt 9).</p>
+      </section>
+    );
+  }
   const conn = await loadConnection(admin);
   const [{ count: total }, { count: pending }] = await Promise.all([
     admin.from("activities").select("id", { count: "exact", head: true }).is("deleted_at", null),
