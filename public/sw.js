@@ -1,7 +1,7 @@
 // Service Worker für Enduro One 2027
 // - statische Assets (Next-Bundles, Icons): Cache-first
 // - Seiten: Network-first, bei fehlendem Netz → zuletzt gesehene Version bzw. /offline
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGE_CACHE = `pages-${VERSION}`;
 const OFFLINE_URL = "/offline";
