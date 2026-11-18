@@ -135,6 +135,12 @@ describe("Zuordnung Aktivität ↔ Einheit", () => {
     expect(typeScore("intervals", act(1, "x", "Ride", { zone_seconds: [0, 2000, 600, 400, 200] }))).toBeGreaterThan(0);
   });
 
+  it("Intervalle: Läufe (Laufband oder draußen) zählen", () => {
+    expect(typeScore("intervals", act(1, "x", "Run"))).toBeGreaterThan(0);
+    expect(typeScore("intervals", act(1, "x", "VirtualRun"))).toBeGreaterThan(0);
+    expect(typeScore("gravel", act(1, "x", "Run"))).toBe(0);
+  });
+
   it("bevorzugt bei mehreren Kandidaten den passenderen Typ und dann die längere Aktivität", () => {
     const sunday = [ses("g", "2026-11-29", "gravel")];
     const m = matchActivities(sunday, [

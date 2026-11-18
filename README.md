@@ -147,7 +147,7 @@ Der Link enthält einen geheimen Schlüssel. Wenn er in falsche Hände gerät, e
   | Yoga & Mobility | Yoga, Pilates |
   | Enduro | MountainBikeRide, EMountainBikeRide |
   | Gravel | GravelRide, Ride (notfalls MTB) |
-  | Intervalle | VirtualRide (Indoor) oder Fahrt mit mindestens 5 Minuten in Z4/Z5 |
+  | Intervalle | VirtualRide (Indoor), Lauf (Run, TrailRun, VirtualRun – Laufband oder draußen) oder Fahrt mit mindestens 5 Minuten in Z4/Z5 |
   | Rennen | jede Radfahrt |
 
   Status: **erledigt** (Aktivität am Plantag), **verschoben** (bis 2 Tage daneben, gleiche Woche), **verpasst** (Tag vorbei, keine Aktivität). Nicht zugeordnete Aktivitäten erscheinen im Kalender als „zusätzlich“.
@@ -199,6 +199,17 @@ Der Link enthält einen geheimen Schlüssel. Wenn er in falsche Hände gerät, e
 | Rennen | nur die Renntage |
 | Erholung | Yoga & Mobility und eine lockere Gravel-Ausfahrt (50 %) |
 | Pause | nichts |
+
+**Winterregel Laufintervalle** (`lib/plan/run-intervals.ts`): Bis zur Zeitumstellung am 28.3.2027 sind die Mittwochs-Intervalle Laufeinheiten (Laufband im Studio oder draußen), weil es abends zu dunkel und kalt fürs Rad ist und kein Rollentrainer da ist. Jede Einheit bekommt die Anleitung als Notiz (auch im Kalender-Abo):
+
+| Zeitraum | Hauptteil | Dauer |
+|---|---|---|
+| Phase 1 (bis 20.12.) | 6–8× 1–2 min zügig (Z3–Z4), je 1–2 min gehen/traben | 40–50 min |
+| Januar | Schwelle 3× 8–10 min Z4, je 3 min traben | 50–60 min |
+| Februar | Schwelle 3× 10–12 min Z4, je 3 min traben | 55–65 min |
+| März bis 28.3. | 5× 3 min sehr hart (Z4–Z5), je 3 min locker | 45–50 min |
+
+In Entlastungswochen: Intervalle halbieren, Dauer × 0,6. Ab Mi 31.3.2027 wieder Rad-Intervalle laut Standardwoche.
 
 Ausnahmen aus dem Seed:
 - So 22.11.26: Gravel entfällt.
