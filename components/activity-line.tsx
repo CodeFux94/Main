@@ -1,7 +1,11 @@
 import { formatMinutes } from "@/lib/dates";
 import type { ActivitySummary } from "@/lib/plan/types";
 
-export const ZONE_COLORS = ["#71717a", "#38bdf8", "#22c55e", "#f59e0b", "#ef4444"];
+// HF-Zonen Z1–Z5 als geordnete, einfarbige Rampe (dunkel → hell = locker → hart),
+// geprüft mit dem Palette-Validator (ordinal, dunkle Fläche).
+export const ZONE_COLORS = ["#1c5cab", "#2a78d6", "#5598e7", "#86b6ef", "#b7d3f6"];
+/** Schriftfarbe auf der jeweiligen Zonenfarbe */
+export const ZONE_TEXT = ["#ffffff", "#ffffff", "#ffffff", "#0b0b0b", "#0b0b0b"];
 
 const SPORT_LABELS: Record<string, string> = {
   Ride: "Rad",
@@ -36,10 +40,10 @@ export function ZoneBar({ zones, className = "" }: { zones: number[] | null; cla
   const total = zones?.reduce((s, x) => s + x, 0) ?? 0;
   if (!zones || total === 0) return null;
   return (
-    <div className={`flex h-1.5 overflow-hidden rounded-full bg-zinc-800 ${className}`} title="Zeit in HF-Zonen Z1–Z5">
-      {zones.map((z, i) => (
-        <div key={i} style={{ width: `${(z / total) * 100}%`, background: ZONE_COLORS[i] }} />
-      ))}
+    <div className={`flex h-1.5 gap-[2px] ${className}`} title="Zeit in HF-Zonen Z1–Z5">
+      {zones.map((z, i) =>
+        z > 0 ? <div key={i} className="rounded-full" style={{ width: `${(z / total) * 100}%`, background: ZONE_COLORS[i] }} /> : null,
+      )}
     </div>
   );
 }
