@@ -4,11 +4,12 @@ import {
   addDays, addMonths, eachDay, endOfMonth, endOfWeek, formatDayMonth, formatLong, formatMonth, isISODate,
   isWithin, isoWeekNumber, startOfMonth, startOfWeek, todayISO, WEEKDAY_SHORT, type ISODate,
 } from "@/lib/dates";
-import { countSessions, getDeloads, getOverrides, getPhases, getRaces, getSessions, getSettings, requireUser } from "@/lib/data";
+import { countSessions, getActivities, getDeloads, getOverrides, getPhases, getRaces, getSessions, getSettings, requireUser } from "@/lib/data";
 import { phaseForDate } from "@/lib/plan/generate";
 import { sessionStatus } from "@/lib/plan/status";
 import { TYPE_COLORS } from "@/lib/plan/style";
-import { PHASE_KIND_LABELS, SESSION_TYPE_LABELS, SESSION_TYPES, type DeloadWeek, type Phase, type PlannedSession, type Race } from "@/lib/plan/types";
+import { PHASE_KIND_LABELS, SESSION_TYPE_LABELS, SESSION_TYPES, type ActivitySummary, type DeloadWeek, type Phase, type PlannedSession, type Race } from "@/lib/plan/types";
+import { ActivityLine } from "@/components/activity-line";
 import { PageHeader } from "@/components/page-header";
 import { SessionCard } from "@/components/session-card";
 import { GeneratePlanButton } from "@/components/generate-plan-button";
@@ -40,7 +41,13 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     view === "monat"
       ? { from: startOfWeek(startOfMonth(anchor)), to: endOfWeek(endOfMonth(anchor)) }
       : { from: startOfWeek(anchor), to: endOfWeek(anchor) };
-  const sessions = await getSessions(supabase, range.from, range.to);
+  const [sessions, activities] = await Promise.all([
+    getSessions(supabase, range.from, range.to),
+    getActivities(supabase, range.from, range.to),
+  ]);
+  // Aktivitäten, die keiner Einheit zugeordnet sind
+  const matchedIds = new Set(sessions.map((s) => s.activity_id).filter((x) => x != null));
+  const extras = activities.filter((a) => !matchedIds.has(a.id));
 
   const href = (v: View, d: ISODate) => `/kalender?ansicht=${v}&datum=${d}`;
   const prev = view === "monat" ? addMonths(anchor, -1) : addDays(anchor, -7);
@@ -96,7 +103,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
       </div>
 
       {view === "monat" ? (
-        <MonthGrid anchor={anchor} from={range.from} to={range.to} today={today} sessions={sessions} phases={phases} races={races} />
+        <MonthGrid anchor={anchor} from={range.from} to={range.to} today={today} sessions={sessions} extras={extras} phases={phases} races={races} />
       ) : (
         <WeekList
           from={range.from}
@@ -106,6 +113,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
           races={races}
           deloads={deloads}
           overrideKeys={overrideKeys}
+          extras={extras}
         />
       )}
 
@@ -117,9 +125,9 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
 
 function MonthGrid(props: {
   anchor: ISODate; from: ISODate; to: ISODate; today: ISODate;
-  sessions: PlannedSession[]; phases: Phase[]; races: Race[];
+  sessions: PlannedSession[]; extras: ActivitySummary[]; phases: Phase[]; races: Race[];
 }) {
-  const { anchor, from, to, today, sessions, phases, races } = props;
+  const { anchor, from, to, today, sessions, extras, phases, races } = props;
   const month = anchor.slice(0, 7);
   const days = eachDay(from, to);
   return (
@@ -162,11 +170,18 @@ function MonthGrid(props: {
                         title={s.title}
                         className={`h-2 w-2 rounded-full ${st === "cancelled" ? "opacity-30" : ""} ${
                           st === "missed" ? "ring-1 ring-red-500" : ""
-                        }`}
+                        } ${st === "done" || st === "shifted" ? "ring-1 ring-emerald-300" : ""}`}
                         style={{ background: TYPE_COLORS[s.session_type] }}
-                      />
+                      >
+                        {(st === "done" || st === "shifted") && <span className="sr-only">erledigt</span>}
+                      </span>
                     );
                   })}
+                {extras
+                  .filter((a) => a.local_date === d)
+                  .map((a) => (
+                    <span key={a.id} title={`Zusätzlich: ${a.name}`} className="h-2 w-2 rounded-full border border-zinc-400" />
+                  ))}
               </div>
             </Link>
           );
@@ -179,6 +194,14 @@ function MonthGrid(props: {
             {SESSION_TYPE_LABELS[t]}
           </span>
         ))}
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full ring-1 ring-emerald-300" style={{ background: "#52525b" }} />
+          erledigt
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full border border-zinc-400" />
+          zusätzlich
+        </span>
       </div>
     </div>
   );
@@ -186,9 +209,9 @@ function MonthGrid(props: {
 
 function WeekList(props: {
   from: ISODate; today: ISODate; sessions: PlannedSession[]; phases: Phase[]; races: Race[];
-  deloads: DeloadWeek[]; overrideKeys: Set<string>;
+  deloads: DeloadWeek[]; overrideKeys: Set<string>; extras: ActivitySummary[];
 }) {
-  const { from, today, sessions, phases, races, deloads, overrideKeys } = props;
+  const { from, today, sessions, phases, races, deloads, overrideKeys, extras } = props;
   const deload = deloads.find((w) => isWithin(addDays(from, 3), w.start_date, w.end_date));
   return (
     <div className="space-y-3">
@@ -201,6 +224,7 @@ function WeekList(props: {
         const phase = phaseForDate(phases, d);
         const race = races.find((r) => isWithin(d, r.start_date, r.end_date));
         const daySessions = sessions.filter((s) => s.date === d);
+        const dayExtras = extras.filter((a) => a.local_date === d);
         return (
           <section
             key={d}
@@ -214,12 +238,18 @@ function WeekList(props: {
                 </span>
               )}
             </div>
-            {daySessions.length === 0 ? (
+            {daySessions.length === 0 && dayExtras.length === 0 ? (
               <p className="text-sm text-zinc-500">{phase?.kind === "pause" ? "Pause" : "Ruhetag"}</p>
             ) : (
               <div className="space-y-2">
                 {daySessions.map((s) => (
                   <SessionCard key={s.id} session={s} status={sessionStatus(s, today)} hasOverride={overrideKeys.has(s.slot_key)} />
+                ))}
+                {dayExtras.map((a) => (
+                  <div key={a.id} className="rounded-xl border border-dashed border-zinc-700 p-3">
+                    <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Zusätzliche Aktivität</div>
+                    <ActivityLine a={a} />
+                  </div>
                 ))}
               </div>
             )}

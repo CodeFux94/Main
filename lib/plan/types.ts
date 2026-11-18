@@ -84,10 +84,31 @@ export interface PlannedSlot {
   note: string | null;
 }
 
+/** Kurzfassung einer Strava-Aktivität für die Anzeige. */
+export interface ActivitySummary {
+  id: number;
+  name: string;
+  sport_type: string;
+  local_date: string;
+  start_date_local: string;
+  moving_time_s: number;
+  distance_m: number;
+  elevation_gain_m: number;
+  avg_hr: number | null;
+  max_hr: number | null;
+  avg_watts: number | null;
+  weighted_avg_watts: number | null;
+  zone_seconds: number[] | null;
+  trimp: number | null;
+}
+
 /** Datensatz aus der Tabelle planned_sessions. */
 export interface PlannedSession extends PlannedSlot {
   id: string;
   activity_id: number | null;
+  /** zugeordnete Aktivität (wird beim Laden ergänzt) */
+  activity?: ActivitySummary | null;
+  activity_date?: string | null;
 }
 
 export type SessionStatus = "planned" | "done" | "shifted" | "missed" | "cancelled";

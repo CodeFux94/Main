@@ -5,6 +5,7 @@ import { cancelSessionAction, moveSessionAction, resetSessionAction, type Action
 import { formatDayMonth, formatRange, formatShort, formatTime } from "@/lib/dates";
 import { STATUS_LABELS, type PlannedSession, type SessionStatus } from "@/lib/plan/types";
 import { STATUS_CLASSES, TYPE_COLORS } from "@/lib/plan/style";
+import { ActivityLine } from "./activity-line";
 
 interface Props {
   session: PlannedSession;
@@ -24,7 +25,9 @@ export function SessionCard({ session: s, status, hasOverride, compact }: Props)
   }, {});
 
   const run = (fn: () => Promise<ActionResult>) => startTransition(async () => setMsg(await fn()));
+  // Verschieben/Absagen nur für offene Einheiten; Zurücksetzen immer, wenn manuell geändert
   const editable = s.session_type !== "race" && status !== "done" && status !== "shifted";
+  const resettable = s.session_type !== "race" && hasOverride;
   const moved = s.date !== s.original_date;
 
   return (
@@ -44,10 +47,18 @@ export function SessionCard({ session: s, status, hasOverride, compact }: Props)
         </div>
         <span className={`badge shrink-0 ${STATUS_CLASSES[status]}`}>{STATUS_LABELS[status]}</span>
       </div>
+      {s.activity && (
+        <div className="mt-2 rounded-lg bg-zinc-900 p-2">
+          {status === "shifted" && (
+            <div className="mb-0.5 text-[11px] text-sky-300">erledigt am {formatShort(s.activity.local_date)}</div>
+          )}
+          <ActivityLine a={s.activity} showName={!compact} />
+        </div>
+      )}
 
-      {!compact && editable && mode === "view" && (
+      {!compact && (editable || resettable) && mode === "view" && (
         <div className="mt-2 flex flex-wrap gap-2">
-          {!s.cancelled && (
+          {editable && !s.cancelled && (
             <>
               <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => setMode("move")} disabled={pending}>
                 Verschieben
