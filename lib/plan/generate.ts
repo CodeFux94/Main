@@ -1,4 +1,5 @@
 import { diffDays, eachDay, isWithin, isoWeekday, type ISODate } from "@/lib/dates";
+import { runIntervalWorkout } from "./run-intervals";
 import type { DeloadWeek, Phase, PlanOverride, PlannedSlot, Race, TemplateSession } from "./types";
 
 export interface PlanInput {
@@ -81,12 +82,21 @@ export function generatePlan(input: PlanInput): PlannedSlot[] {
     for (const t of template.filter((x) => x.weekday === wd)) {
       let factor = 1;
       let title = t.title;
+      let note: string | null = null;
+      let base = { duration_min: t.duration_min, duration_max: t.duration_max };
 
       if (phase.kind === "training") {
         const deload = deloads.find((w) => isWithin(d, w.start_date, w.end_date));
         if (deload) {
           factor = Number(deload.volume_factor);
           title = `${t.title} (Entlastung)`;
+        }
+        // Winter: Intervalle als Laufeinheit (eigene Dauer; Entlastung kürzt wie gewohnt)
+        const run = t.session_type === "intervals" ? runIntervalWorkout(d, !!deload) : null;
+        if (run) {
+          title = run.title;
+          note = run.note;
+          base = { duration_min: run.min, duration_max: run.max };
         }
       } else if (phase.kind === "taper") {
         const next = nextRaceAfter(d);
@@ -102,7 +112,7 @@ export function generatePlan(input: PlanInput): PlannedSlot[] {
         } else continue;
       }
 
-      const dur = scaled(t, factor);
+      const dur = scaled({ ...t, ...base }, factor);
       slots.push({
         slot_key: slotKey(d, t.session_type),
         original_date: d,
@@ -116,7 +126,7 @@ export function generatePlan(input: PlanInput): PlannedSlot[] {
         race_id: null,
         volume_factor: factor,
         cancelled: false,
-        note: null,
+        note,
       });
     }
   }
@@ -129,12 +139,12 @@ export function applyOverrides(slots: PlannedSlot[], overrides: PlanOverride[]):
   return slots.map((s) => {
     const o = byKey.get(s.slot_key);
     if (!o) return s;
-    if (o.action === "cancel") return { ...s, cancelled: true, note: o.note };
+    if (o.action === "cancel") return { ...s, cancelled: true, note: o.note ?? s.note };
     return {
       ...s,
       date: o.new_date ?? s.date,
       start_time: o.new_time ?? s.start_time,
-      note: o.note,
+      note: [o.note, s.note].filter(Boolean).join(" · ") || null,
     };
   });
 }

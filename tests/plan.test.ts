@@ -27,7 +27,7 @@ describe("Plan-Generator", () => {
     const week = plan.filter((s) => s.original_date >= "2026-11-30" && s.original_date <= "2026-12-06");
     expect(week.map((s) => [isoWeekday(s.date), s.title, s.start_time])).toEqual([
       [2, "Kraft A", "18:00"],
-      [3, "Intervalle", "18:00"],
+      [3, "Laufintervalle", "18:00"],
       [4, "Kraft B", "18:00"],
       [5, "Yoga & Mobility", "18:00"],
       [6, "Enduro", "10:00"],
@@ -121,5 +121,35 @@ describe("Status", () => {
     expect(sessionStatus({ ...base, cancelled: true }, "2026-11-18")).toBe("cancelled");
     expect(sessionStatus({ ...base, activity_id: 1, activity_date: "2026-11-17" }, "2026-11-18")).toBe("done");
     expect(sessionStatus({ ...base, activity_id: 1, activity_date: "2026-11-18" }, "2026-11-18")).toBe("shifted");
+  });
+});
+
+describe("Winter: Laufintervalle statt Rad", () => {
+  it("Phase 1: Mittwoch ist Laufintervall mit Anleitung, 40–50 min", () => {
+    const s = byKey.get("2026-11-18|intervals")!;
+    expect(s).toMatchObject({ title: "Laufintervalle", target_min: 40, target_max: 50 });
+    expect(s.note).toContain("6–8× 1–2 min");
+    expect(s.note).toContain("Laufband");
+  });
+
+  it("Phase 2: Schwelle 3× 8–10 min im Januar, 3× 10–12 min im Februar", () => {
+    expect(byKey.get("2027-01-13|intervals")!.note).toContain("3× 8–10 min");
+    expect(byKey.get("2027-02-10|intervals")!.note).toContain("3× 10–12 min");
+  });
+
+  it("Entlastungswoche: Intervalle halbieren, Dauer auf 60 %", () => {
+    const s = byKey.get("2027-01-27|intervals")!;
+    expect(s.title).toBe("Laufintervalle (Entlastung)");
+    expect(s.note).toContain("halbieren");
+    expect([s.target_min, s.target_max]).toEqual([30, 35]);
+  });
+
+  it("März bis Zeitumstellung: 5× 3 min sehr hart", () => {
+    expect(byKey.get("2027-03-17|intervals")!.note).toContain("5× 3 min");
+  });
+
+  it("ab 31.3.2027 wieder Rad-Intervalle laut Standardwoche", () => {
+    const s = byKey.get("2027-03-31|intervals")!;
+    expect(s).toMatchObject({ title: "Intervalle", target_min: 60, target_max: 75, note: null });
   });
 });
