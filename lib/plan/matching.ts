@@ -35,6 +35,7 @@ const hardSeconds = (a: MatchActivity) => (a.zone_seconds ? (a.zone_seconds[3] ?
  * - Enduro: (E-)MountainBikeRide
  * - Gravel: GravelRide, Ride (auch MTB als Ersatz)
  * - Intervalle: VirtualRide (Indoor), Lauf (Laufband/draußen) oder Fahrt mit ≥ 5 min in Z4/Z5
+ * - Ausdauer (Studio/Lauf): Lauf, Crosstrainer, Stepper, Rudern, Indoor-Rad
  * - Rennen: jede Radfahrt
  */
 export function typeScore(type: SessionType, a: MatchActivity): number {
@@ -52,6 +53,11 @@ export function typeScore(type: SessionType, a: MatchActivity): number {
       if (s === "VirtualRide") return 3;
       if (RUNS.includes(s)) return 2;
       if (RIDES.includes(s) && hardSeconds(a) >= INTERVAL_MIN_HARD_SECONDS) return 2;
+      return 0;
+    case "cardio":
+      if (RUNS.includes(s) || ["Elliptical", "StairStepper", "Rowing"].includes(s)) return 3;
+      if (s === "VirtualRide") return 2;
+      if (s === "Workout" || s === "Walk" || s === "Hike") return 1;
       return 0;
     case "race":
       return RIDES.includes(s) ? 3 : 0;

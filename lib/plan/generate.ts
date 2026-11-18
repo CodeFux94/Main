@@ -1,5 +1,6 @@
 import { diffDays, eachDay, isWithin, isoWeekday, type ISODate } from "@/lib/dates";
 import { runIntervalWorkout } from "./run-intervals";
+import { SESSION_TYPE_LABELS } from "./types";
 import type { DeloadWeek, Phase, PlanOverride, PlannedSlot, Race, TemplateSession } from "./types";
 
 export interface PlanInput {
@@ -140,11 +141,22 @@ export function applyOverrides(slots: PlannedSlot[], overrides: PlanOverride[]):
     const o = byKey.get(s.slot_key);
     if (!o) return s;
     if (o.action === "cancel") return { ...s, cancelled: true, note: o.note ?? s.note };
+    const typeChanged = !!o.new_session_type && o.new_session_type !== s.session_type;
+    const sessionType = typeChanged ? o.new_session_type! : s.session_type;
+    const title = o.new_title?.trim() || (typeChanged ? SESSION_TYPE_LABELS[sessionType] : s.title);
+    const hasDuration = o.new_duration_min != null || o.new_duration_max != null;
+    const dMin = o.new_duration_min ?? o.new_duration_max ?? null;
+    const dMax = o.new_duration_max ?? o.new_duration_min ?? null;
     return {
       ...s,
       date: o.new_date ?? s.date,
       start_time: o.new_time ?? s.start_time,
-      note: [o.note, s.note].filter(Boolean).join(" · ") || null,
+      session_type: sessionType,
+      title,
+      target_min: hasDuration ? dMin : s.target_min,
+      target_max: hasDuration ? dMax : s.target_max,
+      // Die Laufanleitung passt nach einem Typwechsel nicht mehr
+      note: [o.note, typeChanged ? null : s.note].filter(Boolean).join(" · ") || null,
     };
   });
 }

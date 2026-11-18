@@ -1,6 +1,6 @@
 import type { ISODate } from "@/lib/dates";
 
-export const SESSION_TYPES = ["strength", "intervals", "mobility", "enduro", "gravel", "race"] as const;
+export const SESSION_TYPES = ["strength", "intervals", "mobility", "enduro", "gravel", "cardio", "race"] as const;
 export type SessionType = (typeof SESSION_TYPES)[number];
 
 export const SESSION_TYPE_LABELS: Record<SessionType, string> = {
@@ -9,8 +9,17 @@ export const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   mobility: "Yoga & Mobility",
   enduro: "Enduro",
   gravel: "Gravel",
+  cardio: "Ausdauer (Studio/Lauf)",
   race: "Rennen",
 };
+
+/** Typen, die man einer Einheit beim Ändern geben kann (Rennen nicht). */
+export const EDITABLE_SESSION_TYPES = SESSION_TYPES.filter((t) => t !== "race") as Exclude<SessionType, "race">[];
+
+/** Ursprünglich geplanter Typ einer Einheit (steckt im slot_key). */
+export function plannedTypeOf(slotKey: string): SessionType {
+  return slotKey.split("|")[1] as SessionType;
+}
 
 export const PHASE_KINDS = ["training", "pause", "taper", "race", "recovery"] as const;
 export type PhaseKind = (typeof PHASE_KINDS)[number];
@@ -65,6 +74,11 @@ export interface PlanOverride {
   new_date: ISODate | null;
   new_time: string | null;
   note: string | null;
+  /** Nur bei "move": Training ersetzen (Art, Titel, Dauer) */
+  new_session_type?: SessionType | null;
+  new_title?: string | null;
+  new_duration_min?: number | null;
+  new_duration_max?: number | null;
 }
 
 /** Eine vom Generator erzeugte Einheit. */

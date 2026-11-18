@@ -98,7 +98,7 @@ const schemas = {
   week_template: z
     .object({
       weekday: int(1, 7, "Wochentag"),
-      session_type: z.enum(["strength", "intervals", "mobility", "enduro", "gravel"]),
+      session_type: z.enum(["strength", "intervals", "mobility", "enduro", "gravel", "cardio"]),
       title: z.string().trim().min(1, "Titel fehlt"),
       start_time: time,
       duration_min: int(5, 600, "Dauer min"),

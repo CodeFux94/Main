@@ -1,5 +1,5 @@
 import { formatMinutes, formatShort } from "@/lib/dates";
-import { STATUS_LABELS, type SessionStatus } from "@/lib/plan/types";
+import { SESSION_TYPE_LABELS, STATUS_LABELS, type SessionStatus } from "@/lib/plan/types";
 import { STATUS_CLASSES, TYPE_COLORS } from "@/lib/plan/style";
 import type { ReportSession } from "@/lib/reports/build";
 import { sportLabel } from "./activity-line";
@@ -39,13 +39,14 @@ export function SessionTable({ sessions }: { sessions: ReportSession[] }) {
   const nf = (v: number, d = 0) => v.toLocaleString("de-DE", { maximumFractionDigits: d });
   return (
     <ul className="divide-y divide-zinc-800">
-      {sessions.map((s) => (
-        <li key={`${s.date}-${s.session_type}`} className="flex items-start gap-3 py-2">
+      {sessions.map((s, i) => (
+        <li key={`${s.date}-${s.session_type}-${i}`} className="flex items-start gap-3 py-2">
           <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: TYPE_COLORS[s.session_type] }} aria-hidden />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline gap-x-2">
               <span className="text-xs text-zinc-500">{formatShort(s.date)}</span>
               <span className={`font-medium ${s.status === "cancelled" ? "line-through text-zinc-500" : ""}`}>{s.title}</span>
+              {s.replaced_type && <span className="text-xs text-sky-300">statt {SESSION_TYPE_LABELS[s.replaced_type]}</span>}
             </div>
             {s.activity && (
               <div className="truncate text-xs text-zinc-400">

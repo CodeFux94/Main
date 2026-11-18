@@ -153,3 +153,43 @@ describe("Winter: Laufintervalle statt Rad", () => {
     expect(s).toMatchObject({ title: "Intervalle", target_min: 60, target_max: 75, note: null });
   });
 });
+
+describe("Einheit ändern (Art, Titel, Dauer, Uhrzeit)", () => {
+  const changed = generatePlan({
+    phases: SEED_PHASES,
+    races: SEED_RACES,
+    deloads: SEED_DELOADS,
+    template: SEED_TEMPLATE,
+    overrides: [
+      ...SEED_OVERRIDES,
+      // Gravel wegen Regen → Ausdauer im Studio, später am Tag, kürzer
+      { slot_key: "2026-11-29|gravel", action: "move", new_date: "2026-11-29", new_time: "16:00", note: "Regen",
+        new_session_type: "cardio", new_title: null, new_duration_min: 45, new_duration_max: null },
+      // Laufintervalle → Yoga mit eigenem Titel; Laufanleitung entfällt
+      { slot_key: "2026-12-02|intervals", action: "move", new_date: "2026-12-02", new_time: null, note: null,
+        new_session_type: "mobility", new_title: "Dehnen & Faszienrolle", new_duration_min: null, new_duration_max: null },
+    ],
+  });
+  const k = new Map(changed.map((s) => [s.slot_key, s]));
+
+  it("ersetzt die Art, setzt Standardtitel, Uhrzeit und Dauer", () => {
+    expect(k.get("2026-11-29|gravel")).toMatchObject({
+      session_type: "cardio", title: "Ausdauer (Studio/Lauf)", start_time: "16:00", target_min: 45, target_max: 45, note: "Regen",
+    });
+  });
+
+  it("eigener Titel, ursprüngliche Dauer, keine Laufanleitung mehr", () => {
+    const s = k.get("2026-12-02|intervals")!;
+    expect(s).toMatchObject({ session_type: "mobility", title: "Dehnen & Faszienrolle", target_min: 40, target_max: 50, note: null });
+  });
+
+  it("Verschieben ohne Typwechsel behält die Laufanleitung", () => {
+    const moved = generatePlan({
+      phases: SEED_PHASES, races: SEED_RACES, deloads: SEED_DELOADS, template: SEED_TEMPLATE,
+      overrides: [{ slot_key: "2026-12-02|intervals", action: "move", new_date: "2026-12-03", new_time: "07:00", note: "Termin" }],
+    });
+    const s = moved.find((x) => x.slot_key === "2026-12-02|intervals")!;
+    expect(s.session_type).toBe("intervals");
+    expect(s.note).toMatch(/^Termin · 10 min einlaufen/);
+  });
+});

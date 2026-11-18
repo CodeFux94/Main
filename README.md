@@ -35,7 +35,7 @@ Melde dich bei Supabase und Vercel am einfachsten mit „Continue with GitHub“
 2. Öffne hier im GitHub-Repo die Datei [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) und klicke auf das Kopier-Symbol („Copy raw file“).
 3. Füge den Inhalt im SQL Editor ein und klicke auf **Run**. Es sollte „Success. No rows returned“ erscheinen.
 4. Mache dasselbe mit [`supabase/seed.sql`](supabase/seed.sql). Damit landen Rennen, Phasen, Entlastungswochen, Standardwoche und Ausnahmen in der Datenbank.
-5. Außerdem [`supabase/migrations/0002_strava.sql`](supabase/migrations/0002_strava.sql) (Strava) und [`supabase/migrations/0003_reports.sql`](supabase/migrations/0003_reports.sql) (Berichte) ausführen – in dieser Reihenfolge.
+5. Außerdem [`supabase/migrations/0002_strava.sql`](supabase/migrations/0002_strava.sql) (Strava) [`supabase/migrations/0003_reports.sql`](supabase/migrations/0003_reports.sql) (Berichte) und [`supabase/migrations/0004_session_changes.sql`](supabase/migrations/0004_session_changes.sql) (Einheiten ändern) ausführen – in dieser Reihenfolge.
 
 Beide Skripte kannst du gefahrlos mehrfach ausführen.
 
@@ -147,6 +147,7 @@ Der Link enthält einen geheimen Schlüssel. Wenn er in falsche Hände gerät, e
   | Yoga & Mobility | Yoga, Pilates |
   | Enduro | MountainBikeRide, EMountainBikeRide |
   | Gravel | GravelRide, Ride (notfalls MTB) |
+  | Ausdauer (Studio/Lauf) | Run, VirtualRun, Elliptical, StairStepper, Rowing (auch VirtualRide, Workout, Walk) |
   | Intervalle | VirtualRide (Indoor), Lauf (Run, TrailRun, VirtualRun – Laufband oder draußen) oder Fahrt mit mindestens 5 Minuten in Z4/Z5 |
   | Rennen | jede Radfahrt |
 
@@ -187,7 +188,7 @@ Der Link enthält einen geheimen Schlüssel. Wenn er in falsche Hände gerät, e
 
 ## Die App benutzen
 
-- **Kalender:** Monatsansicht mit farbigen Phasen, hervorgehobenen Rennen und Punkten für die Einheiten. Tippst du auf einen Tag, öffnet sich die Wochenansicht. Dort kannst du Einheiten **verschieben** (Datum und Uhrzeit), **absagen** und **zurücksetzen**.
+- **Kalender:** Monatsansicht mit farbigen Phasen, hervorgehobenen Rennen und Punkten für die Einheiten. Tippst du auf einen Tag, öffnet sich die Wochenansicht. Dort kannst du Einheiten **ändern** (Datum, Uhrzeit, Art des Trainings, Titel, Dauer, Notiz), **absagen** und **zurücksetzen**. Wird die Art geändert (z. B. Gravel → Yoga wegen Regen), zählt die neue Art für die Strava-Zuordnung und die Berichte; der Bericht zeigt „statt Gravel“ und wertet ersetzte statt ausgelassene Einheiten positiv.
 - **Einstellungen:** FTP, Gewicht und HF-Zonen. Unter **Plan bearbeiten** änderst du Rennen, Phasen, Entlastungswochen und die Standardwoche. Nach jeder Änderung erzeugt die App den Plan automatisch neu. Deine manuellen Verschiebungen und Absagen bleiben dabei erhalten.
 
 ### Planregeln

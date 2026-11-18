@@ -4,7 +4,7 @@ import type { ActivitySummary, Phase, PlannedSession } from "@/lib/plan/types";
 
 const ses = (date: string, type: PlannedSession["session_type"], extra: Partial<PlannedSession> = {}): PlannedSession => ({
   id: `${date}-${type}`, slot_key: `${date}|${type}`, original_date: date, date, start_time: "18:00", session_type: type,
-  title: { strength: "Kraft", intervals: "Intervalle", mobility: "Yoga", enduro: "Enduro", gravel: "Gravel", race: "Rennen" }[type],
+  title: { strength: "Kraft", intervals: "Intervalle", mobility: "Yoga", enduro: "Enduro", gravel: "Gravel", cardio: "Ausdauer", race: "Rennen" }[type],
   target_min: 60, target_max: 90, phase_id: "p1", race_id: null, volume_factor: 1, cancelled: false, note: null, activity_id: null, ...extra,
 });
 const act = (id: number, date: string, extra: Partial<ActivitySummary> = {}): ActivitySummary => ({
@@ -101,5 +101,17 @@ describe("Fälligkeit", () => {
   it("nur abgeschlossene Phasen ohne Pause", () => {
     const pause: Phase = { ...phase, id: "x", kind: "pause", end_date: "2026-11-30" };
     expect(duePhases([phase, pause, next], "2026-12-07").map((p) => p.id)).toEqual(["p1"]);
+  });
+});
+
+describe("Wochenreview mit ersetzten Einheiten", () => {
+  it("zeigt die ursprüngliche Art und lobt Flexibilität", () => {
+    const yoga = act(9, "2026-11-22", { sport_type: "Yoga", zone_seconds: null, trimp: 10, distance_m: 0, elevation_gain_m: 0 });
+    const gravelToYoga = linked(ses("2026-11-22", "mobility", { slot_key: "2026-11-22|gravel", title: "Yoga statt Gravel" }), yoga);
+    const r = buildWeeklyReport({ ...ctx, sessions: [...sessions, gravelToYoga], activities: [...a, yoga] }, "2026-11-16");
+    const s = r.sessions.find((x) => x.title === "Yoga statt Gravel")!;
+    expect(s).toMatchObject({ status: "done", replaced_type: "gravel" });
+    expect(r.highlights).toContain("Flexibel geblieben: eine Einheit ersetzt statt ausgelassen (Gravel → Yoga & Mobility).");
+    expect(r.sessions.filter((x) => x.title !== "Yoga statt Gravel").every((x) => !x.replaced_type)).toBe(true);
   });
 });

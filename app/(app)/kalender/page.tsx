@@ -8,7 +8,7 @@ import { countSessions, getActivities, getDeloads, getOverrides, getPhases, getR
 import { phaseForDate } from "@/lib/plan/generate";
 import { sessionStatus } from "@/lib/plan/status";
 import { TYPE_COLORS } from "@/lib/plan/style";
-import { PHASE_KIND_LABELS, SESSION_TYPE_LABELS, SESSION_TYPES, type ActivitySummary, type DeloadWeek, type Phase, type PlannedSession, type Race } from "@/lib/plan/types";
+import { PHASE_KIND_LABELS, SESSION_TYPE_LABELS, SESSION_TYPES, type ActivitySummary, type DeloadWeek, type Phase, type PlannedSession, type PlanOverride, type Race } from "@/lib/plan/types";
 import { ActivityLine } from "@/components/activity-line";
 import { PageHeader } from "@/components/page-header";
 import { SessionCard } from "@/components/session-card";
@@ -36,6 +36,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     getSettings(supabase),
   ]);
   const overrideKeys = new Set(overrides.map((o) => o.slot_key));
+  const overrideByKey = new Map(overrides.map((o) => [o.slot_key, o]));
 
   const range =
     view === "monat"
@@ -113,6 +114,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
           races={races}
           deloads={deloads}
           overrideKeys={overrideKeys}
+          overrideByKey={overrideByKey}
           extras={extras}
         />
       )}
@@ -209,9 +211,9 @@ function MonthGrid(props: {
 
 function WeekList(props: {
   from: ISODate; today: ISODate; sessions: PlannedSession[]; phases: Phase[]; races: Race[];
-  deloads: DeloadWeek[]; overrideKeys: Set<string>; extras: ActivitySummary[];
+  deloads: DeloadWeek[]; overrideKeys: Set<string>; overrideByKey: Map<string, PlanOverride>; extras: ActivitySummary[];
 }) {
-  const { from, today, sessions, phases, races, deloads, overrideKeys, extras } = props;
+  const { from, today, sessions, phases, races, deloads, overrideKeys, overrideByKey, extras } = props;
   const deload = deloads.find((w) => isWithin(addDays(from, 3), w.start_date, w.end_date));
   return (
     <div className="space-y-3">
@@ -243,7 +245,7 @@ function WeekList(props: {
             ) : (
               <div className="space-y-2">
                 {daySessions.map((s) => (
-                  <SessionCard key={s.id} session={s} status={sessionStatus(s, today)} hasOverride={overrideKeys.has(s.slot_key)} />
+                  <SessionCard key={s.id} session={s} status={sessionStatus(s, today)} hasOverride={overrideKeys.has(s.slot_key)} override={overrideByKey.get(s.slot_key)} />
                 ))}
                 {dayExtras.map((a) => (
                   <div key={a.id} className="rounded-xl border border-dashed border-zinc-700 p-3">

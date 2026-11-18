@@ -141,6 +141,12 @@ describe("Zuordnung Aktivität ↔ Einheit", () => {
     expect(typeScore("gravel", act(1, "x", "Run"))).toBe(0);
   });
 
+  it("Ausdauer (Studio/Lauf): Laufband, Crosstrainer, Rudern", () => {
+    for (const t of ["Run", "VirtualRun", "Elliptical", "Rowing", "StairStepper"]) expect(typeScore("cardio", act(1, "x", t))).toBe(3);
+    expect(typeScore("cardio", act(1, "x", "VirtualRide"))).toBe(2);
+    expect(typeScore("cardio", act(1, "x", "MountainBikeRide"))).toBe(0);
+  });
+
   it("bevorzugt bei mehreren Kandidaten den passenderen Typ und dann die längere Aktivität", () => {
     const sunday = [ses("g", "2026-11-29", "gravel")];
     const m = matchActivities(sunday, [
